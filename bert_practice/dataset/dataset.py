@@ -17,6 +17,7 @@ class BERTDataset(Dataset):
 
         with open(corpus_path, "r", encoding=encoding) as f:
             if self.corpus_lines is None and not on_memory:
+                self.corpus_lines = 0
                 for _ in tqdm.tqdm(f, desc="Loading Dataset", total=corpus_lines):
                     self.corpus_lines += 1
 
@@ -29,7 +30,7 @@ class BERTDataset(Dataset):
             self.file = open(corpus_path, "r", encoding=encoding)
             self.random_file = open(corpus_path, "r", encoding=encoding)
 
-            for _ in range(random.randint(self.corpus_lines if self.corpus_lines < 1000 else 1000)):
+            for _ in range(random.randint(0, self.corpus_lines if self.corpus_lines < 1000 else 1000)):
                 self.random_file.__next__()
 
     def __len__(self):
@@ -37,8 +38,8 @@ class BERTDataset(Dataset):
 
     def __getitem__(self, item):
         t1, t2, is_next_label = self.random_sent(item)
-        t1_random, t1_label = self.random_word(t1)
-        t2_random, t2_label = self.random_word(t2)
+        t1_random, t1_label, t1_depth = self.random_word(t1)
+        t2_random, t2_label, t2_depth = self.random_word(t2)
 
         # [CLS] tag = SOS tag, [SEP] tag = EOS tag
         t1 = [self.vocab.sos_index] + t1_random + [self.vocab.eos_index]
@@ -47,25 +48,34 @@ class BERTDataset(Dataset):
         t1_label = [self.vocab.pad_index] + t1_label + [self.vocab.pad_index]
         t2_label = t2_label + [self.vocab.pad_index]
 
+        t1_depth = [1] + t1_depth + [1]
+        t2_depth = t2_depth + [1]
+
         segment_label = ([1 for _ in range(len(t1))] + [2 for _ in range(len(t2))])[:self.seq_len]
         bert_input = (t1 + t2)[:self.seq_len]
         bert_label = (t1_label + t2_label)[:self.seq_len]
+        depth_label = (t1_depth + t2_depth)[:self.seq_len]
 
         padding = [self.vocab.pad_index for _ in range(self.seq_len - len(bert_input))]
-        bert_input.extend(padding), bert_label.extend(padding), segment_label.extend(padding)
+        bert_input.extend(padding), bert_label.extend(padding)
+        segment_label.extend(padding), depth_label.extend(padding)
 
-        output = {"bert_input": bert_input,
-                  "bert_label": bert_label,
-                  "segment_label": segment_label,
-                  "is_next": is_next_label}
-
-        return {key: torch.tensor(value) for key, value in output.items()}
+        return {
+            "bert_input": torch.tensor(bert_input),
+            "bert_label": torch.tensor(bert_label),
+            "depth_label": torch.tensor(depth_label, dtype=torch.int32),
+            "segment_label": torch.tensor(segment_label, dtype=torch.int32),
+            "is_next": torch.tensor(is_next_label)
+        }
 
     def random_word(self, sentence):
-        tokens = sentence.split()
+        tokens = sentence.split('{TOK}')
         output_label = []
+        output_depth = []
 
-        for i, token in enumerate(tokens):
+        for i, token_with_depth in enumerate(tokens):
+            token = "/".join(token_with_depth.split("/")[:-1])
+            depth = int(token_with_depth.split("/")[-1])
             prob = random.random()
             if prob < 0.15:
                 prob /= 0.15
@@ -88,7 +98,9 @@ class BERTDataset(Dataset):
                 tokens[i] = self.vocab.stoi.get(token, self.vocab.unk_index)
                 output_label.append(0)
 
-        return tokens, output_label
+            output_depth.append(depth)
+
+        return tokens, output_label, output_depth
 
     def random_sent(self, index):
         t1, t2 = self.get_corpus_line(index)
