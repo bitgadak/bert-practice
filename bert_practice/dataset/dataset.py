@@ -62,7 +62,7 @@ class BERTDataset(Dataset):
         return {key: torch.tensor(value) for key, value in output.items()}
 
     def random_word(self, sentence):
-        tokens = sentence.split()
+        tokens = sentence.split('{TOK}')
         output_label = []
 
         for i, token in enumerate(tokens):

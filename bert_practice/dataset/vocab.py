@@ -99,7 +99,7 @@ class Vocab(TorchVocab):
         super().__init__(counter, specials=["<pad>", "<unk>", "<eos>", "<sos>", "<mask>"],
                          max_size=max_size, min_freq=min_freq)
 
-    def to_seq(self, sentece, seq_len, with_eos=False, with_sos=False) -> list:
+    def to_seq(self, sentence, seq_len, with_eos=False, with_sos=False) -> list:
         pass
 
     def from_seq(self, seq, join=False, with_pad=False):
@@ -124,7 +124,7 @@ class WordVocab(Vocab):
             if isinstance(line, list):
                 words = line
             else:
-                words = line.replace("\n", "").replace("\t", "").split()
+                words = line.replace("\n", "").replace("\t", "{TOK}").split("{TOK}")
 
             for word in words:
                 counter[word] += 1
