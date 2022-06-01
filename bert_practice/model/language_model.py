@@ -20,8 +20,8 @@ class BERTLM(nn.Module):
         self.next_sentence = NextSentencePrediction(self.bert.hidden)
         self.mask_lm = MaskedLanguageModel(self.bert.hidden, vocab_size)
 
-    def forward(self, x, segment_label):
-        x = self.bert(x, segment_label)
+    def forward(self, x, segment_label, depth_label):
+        x = self.bert(x, segment_label, depth_label)
         return self.next_sentence(x), self.mask_lm(x)
 
 

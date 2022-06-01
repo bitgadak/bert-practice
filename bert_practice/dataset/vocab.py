@@ -78,16 +78,6 @@ class TorchVocab(object):
     def __len__(self):
         return len(self.itos)
 
-    def vocab_rerank(self):
-        self.stoi = {word: i for i, word in enumerate(self.itos)}
-
-    def extend(self, v, sort=False):
-        words = sorted(v.itos) if sort else v.itos
-        for w in words:
-            if w not in self.stoi:
-                self.itos.append(w)
-                self.stoi[w] = len(self.itos) - 1
-
 
 class Vocab(TorchVocab):
     def __init__(self, counter, max_size=None, min_freq=1):
@@ -151,20 +141,6 @@ class WordVocab(Vocab):
             seq = seq[:seq_len]
 
         return (seq, origin_seq_len) if with_len else seq
-
-    def from_seq(self, seq, join=False, with_pad=False):
-        words = [self.itos[idx]
-                 if idx < len(self.itos)
-                 else "<%d>" % idx
-                 for idx in seq
-                 if not with_pad or idx != self.pad_index]
-
-        return " ".join(words) if join else words
-
-    @staticmethod
-    def load_vocab(vocab_path: str) -> 'WordVocab':
-        with open(vocab_path, "rb") as f:
-            return pickle.load(f)
 
 
 if __name__ == '__main__':
